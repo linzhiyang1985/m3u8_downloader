@@ -18,8 +18,8 @@ HEADERS = {'User-Agent': r'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (K
 
 if __name__ == '__main__':
     if DEBUG:
-        m3u8_url = 'https://vip.dytt-hot.com/20250128/22960_7e4a87d1/3000k/hls/mixed.m3u8'
-        local_dir = 'yrzx'
+        m3u8_url = 'https://v.lzcdn27.com/20260910/16717_fb4aedfd/index.m3u8'
+        local_dir = 'winter_murder_hunter/01'
         start_index = 0
         end_skip_count = 0
     else:
@@ -120,7 +120,7 @@ def prepare_m3u8_file_content(m3u8_url, local_dir):
     else:
         home_url, m3u8_file_content = get_m3u8_file_content(m3u8_url, local_dir)
     file_names_in_order, enc_key, iv = parse_m3u8_file_content(m3u8_file_content, home_url)
-    return file_names_in_order, enc_key, iv
+    return file_names_in_order, enc_key, iv, home_url
 
 def download_ts_file(url, local_file_path, enc_key, iv):
     global HEADERS
@@ -158,13 +158,12 @@ def backup_command(m3u8_url, local_dir, start_index=0, end_skip_count=0):
         f.write(command + os.linesep)
 
 def download_m3u8(m3u8_url, local_dir, start_index=0, end_skip_count=0):
-    file_names_in_order, enc_key, iv = prepare_m3u8_file_content(m3u8_url, local_dir)
+    file_names_in_order, enc_key, iv, home_url = prepare_m3u8_file_content(m3u8_url, local_dir)
     
     os.makedirs(local_dir, exist_ok=True)
     
     total_segments = len(file_names_in_order)
     seg_str_len = len(str(total_segments))
-    home_url = parse_home_url(m3u8_url)
 
     for l in range(3):
         segment_index = start_index # skip starting song
