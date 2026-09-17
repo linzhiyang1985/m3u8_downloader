@@ -13,44 +13,27 @@ def download_one(m3u8_url, local_dir, start_index=0, end_skip_count=0):
 
 if __name__ == '__main__':
     ### Settings ###
-    root_folder = 'jiao_feng'
-    num_dir = 1
+    root_folder = 'dongcheng_liexiong'
 
+    m3u8_list = '''
+01,冬城猎凶第01集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260910/16717_fb4aedfd/index.m3u8
+02,冬城猎凶第02集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260910/16722_18a06202/index.m3u8
+03,冬城猎凶第03集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260910/16721_6eb4a96f/index.m3u8
+04,冬城猎凶第04集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260910/16723_a532bcbe/index.m3u8
+05,冬城猎凶第05集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260911/16797_e6f8b907/index.m3u8
+06,冬城猎凶第06集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260911/16802_d6d8adb6/index.m3u8
+07,冬城猎凶第07集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260912/16855_30c5e8b3/index.m3u8
+08,冬城猎凶第08集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260912/16859_a162d1c4/index.m3u8
+09,冬城猎凶第09集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260913/16896_4f60a32f/index.m3u8
+10,冬城猎凶第10集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260914/16937_a74f5c6f/index.m3u8
+11,冬城猎凶第11集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260915/16995_214c2d93/index.m3u8
+12,冬城猎凶第12集在线观看-电视剧-西瓜影视,https://v.lzcdn27.com/20260916/17032_6f8eb8d0/index.m3u8
+'''.splitlines()
 
-
-
-
-
-
-
-
-    url_list = (
-'https://v.lfthirtytwo.com/20260906/10215_743533c9/index.m3u8',
-'https://v.lfthirtytwo.com/20260906/10214_05e3c9a4/index.m3u8',
-'https://v.lfthirtytwo.com/20260906/10213_f5fee75d/index.m3u8',
-'https://v.lfthirtytwo.com/20260906/10221_9af9bd2d/index.m3u8',
-'https://v.lfthirtytwo.com/20260907/10273_73bc3f3d/index.m3u8',
-'https://v.lfthirtytwo.com/20260907/10272_c6900d24/index.m3u8',
-'https://v.lfthirtytwo.com/20260908/10335_e8523b2d/index.m3u8',
-'https://v.lfthirtytwo.com/20260908/10336_c8548851/index.m3u8',
-'https://v.lzcdn27.com/20260909/16664_cd31263b/index.m3u8',
-'https://v.lzcdn27.com/20260909/16669_48737468/index.m3u8',
-'https://v.lzcdn27.com/20260910/16736_0e5632a9/index.m3u8',
-'https://v.lzcdn27.com/20260910/16760_a28b5736/index.m3u8',
-'https://v.lzcdn27.com/20260911/16808_0136f2ce/index.m3u8',
-'https://v.lzcdn27.com/20260911/16811_841c9f4b/index.m3u8',
-'https://v.lzcdn27.com/20260912/16862_6ad3385a/index.m3u8',
-'https://v.lzcdn27.com/20260912/16865_2031cf7a/index.m3u8',
-'https://v.lzcdn27.com/20260913/16898_749a7ec4/index.m3u8',
-'https://v.lzcdn27.com/20260913/16900_790d0aaa/index.m3u8',
-'https://v.lzcdn27.com/20260914/16939_1a765b7b/index.m3u8',
-'https://v.lzcdn27.com/20260914/16941_496f75c5/index.m3u8',
-    )
-
+    url_list = [line.split(',') for line in m3u8_list if line.strip()]
     url_dir_pairs = []
-    for url in url_list:
-        url_dir_pairs.append((url, f'{root_folder}{'/' if root_folder else ''}{num_dir:02d}'))
-        num_dir += 1
+    for id, title, url in url_list:
+        url_dir_pairs.append((url, f'{root_folder}{'/' if root_folder else ''}{id}'))
     ######
 
     ### batch parse m3u8 ###
