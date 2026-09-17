@@ -1,0 +1,351 @@
+from toga import MainWindow, Label, Button, Box, TextInput, MultilineTextInput, SplitContainer, NumberInput
+import toga
+import pyperclip
+
+from get_m3u8 import get_m3u8_and_next_page, parse_host
+from fetch_ts_files_from_m3u8_list import FLAGS, backup_command, get_m3u8_file_content, download_m3u8
+
+from toga.constants import COLUMN, ROW
+
+from typing import TypeAlias
+from pathlib import Path
+IconContentT: TypeAlias = str | Path | toga.Icon
+
+from toga.app import AppStartupMethod, OnRunningHandler, OnExitHandler
+from toga.documents import Document
+
+import configparser
+from os import path
+from threading import Thread
+import time
+
+class M3u8Downloader(toga.App):
+
+    def __init__(self,
+        formal_name: str | None = None,
+        app_id: str | None = None,
+        app_name: str | None = None,
+        *,
+        icon: IconContentT | None = None,
+        author: str | None = None,
+        version: str | None = None,
+        home_page: str | None = None,
+        description: str | None = None,
+        startup: AppStartupMethod | None = None,
+        document_types: list[type[Document]] | None = None,
+        on_running: OnRunningHandler | None = None,
+        on_exit: OnExitHandler | None = None,
+        ):
+        super().__init__(
+            formal_name=formal_name,
+            app_id=app_id,
+            app_name=app_name,
+            icon=icon,
+            author=author,
+            version=version,
+            home_page=home_page,
+            description=description,
+            startup=startup,
+            document_types=document_types,
+            on_running=on_running,
+            on_exit=on_exit)
+        self.main_window = None
+        self.url_dir_pairs = []
+        self._activate_download_thread_()
+
+    def _activate_download_thread_(self):
+        FLAGS['stop'] = False
+        self.downloading = False
+        self.exit_flag = False
+        self.download_thread = Thread(target=self.download_thread_method)
+        self.download_thread.start()
+
+    def clear_start_html_handler(self, widget):
+        self.html_input.value = ""
+
+    def detect_handler(self, widget):
+        page_url = self.html_input.value
+        if not page_url:
+            self.html_input.placeholder = "Please input start html"
+            self.html_input.focus()
+            return
+        host = parse_host(page_url)
+        self.m3u8_table.data.clear()
+        while True:
+            title, m3u8_url, link_next = get_m3u8_and_next_page(host, page_url)
+            print(title)
+            print(link_next)
+            print(m3u8_url)
+            self.m3u8_table.data.append((f"{len(self.m3u8_table.data)+1:02d}", title, m3u8_url))
+            if link_next:
+                page_url = link_next
+                self.html_input.value = page_url
+            else:
+                break
+    
+    def get_m3u8_list(self):
+        m3u8_list = [(row.index, row.title, row.m3u8_url) for row in self.m3u8_table.data]
+        return m3u8_list
+
+    def copy_handler(self, widget):
+        m3u8_list = self.get_m3u8_list()
+        format_to_str = "\n".join([",".join(item) for item in m3u8_list])
+        # copy to clipboard
+        pyperclip.copy(format_to_str)
+
+    def paste_handler(self, widget):
+        try:
+            format_as_str = pyperclip.paste()
+            if format_as_str:
+                self.m3u8_table.data.clear()
+                m3u8_list = [tuple(item.split(',')) for item in format_as_str.splitlines()]
+                for index, title, m3u8_url in m3u8_list:
+                    self.m3u8_table.data.append((index, title, m3u8_url))
+        except Exception as ex:
+            print(ex)
+
+    def clear_handler(self, widget):
+        self.m3u8_table.data.clear()        
+
+    def remove_row_handler(self, widget, row):
+        self.m3u8_table.data.remove(row)
+
+    def start_download_handler(self, widget):
+        ### Settings ###
+        root_folder = self.local_path_input.value
+        m3u8_list = self.get_m3u8_list()
+
+        self.url_dir_pairs.clear()
+        for index, _, m3u8_url in m3u8_list:
+            self.url_dir_pairs.append((m3u8_url, f'{root_folder}{'/' if root_folder else ''}{index}'))
+        ######
+
+        ### batch parse m3u8 ###
+        for url, path in self.url_dir_pairs:
+            self.download_log.value += f'>>> Preparing m3u8 {path}\n'
+            backup_command(url, path, self.start_index_input.value, self.skip_count_input.value)
+            get_m3u8_file_content(url, path)
+            self.download_log.value += f'<<< Prepared m3u8 {path}\n'
+
+        ### Download ###
+        self.downloading = True
+        ######
+
+    def download_thread_method(self):
+        while True:
+            if self.exit_flag:
+                break
+            
+            if self.downloading and self.url_dir_pairs:
+                # can do download
+                total = len(self.url_dir_pairs)
+                done_count = 0
+                while self.url_dir_pairs:
+                    url, path = self.url_dir_pairs[0]
+                    self.download_log.value += f">>> Downloading {path}\n"
+                    download_m3u8(url, path, int(self.start_index_input.value), int(self.skip_count_input.value))
+                    done_count += 1
+                    if FLAGS['stop']:
+                        self.download_log.value += f"<<< Stopped download of {path} ({done_count}/{total})\n"
+                        break
+                    else:
+                        self.download_log.value += f"<<< Downloaded {path} ({done_count}/{total})\n"
+                        self.url_dir_pairs.remove((url, path))
+                
+                self.downloading = False # all files downloaded
+                if FLAGS['stop']:
+                    break
+            else:
+                time.sleep(1)
+
+    def stop_download_handler(self, widget):
+        FLAGS['stop'] = True
+        self.downloading = False
+        self.url_dir_pairs.clear()
+        self.download_thread.join()
+        self._activate_download_thread_()
+
+    def clear_log_handler(self, widget):
+        self.download_log.value = "<Download Log>\n"
+    
+    def load_settings(self):
+        ## load settings from file
+        config = configparser.ConfigParser()
+        if path.exists('settings.ini'):
+            config.read('settings.ini', encoding='utf-8')
+            self.html_input.value = config.get('Settings', 'start_html')
+            self.local_path_input.value = config.get('Settings', 'local_path')
+            self.start_index_input.value = int(config.get('Settings', 'start_index'))
+            self.skip_count_input.value = int(config.get('Settings', 'skip_count'))
+            
+            for index in config.options('M3u8'):
+                try:
+                    title, m3u8_url = config.get('M3u8', index).split(',')
+                    self.m3u8_table.data.append((index, title, m3u8_url))
+                except Exception as ex:
+                    print(ex)
+                    continue
+        else:
+            self.html_input.value = ''
+            self.local_path_input.value = 'download'
+            self.start_index_input.value = 0
+            self.skip_count_input.value = 0
+            self.m3u8_table.data.clear()
+
+    def save_settings(self):
+        config = configparser.ConfigParser()
+
+        config.add_section('Settings')
+        config.set('Settings', 'start_html', self.html_input.value)
+        config.set('Settings', 'local_path', self.local_path_input.value)
+        config.set('Settings', 'start_index', str(self.start_index_input.value))
+        config.set('Settings', 'skip_count', str(self.skip_count_input.value))
+
+        config.add_section('M3u8')
+        m3u8_list = self.get_m3u8_list()
+        for index, title, m3u8_url in m3u8_list:
+            config.set('M3u8', index, f'{title},{m3u8_url}')
+        
+        with open('settings.ini', 'w', encoding='utf-8') as f:
+            config.write(f)
+
+    def close_handler(self, widget):
+        self.save_settings()
+        if self.download_thread.is_alive():
+            FLAGS['stop'] = True
+            self.downloading = False
+            self.exit_flag = True
+        self.download_thread.join()
+        self.main_window.close()
+
+    def startup(self):
+        detect_box = Box(direction=COLUMN, gap=10, height=120)
+        
+        label0 = Label("Detect m3u8")
+        label0.style.update(font_weight="bold")
+        row1 = Box()
+        row1.add(label0)
+
+        label1 = Label("Start html")
+        self.html_input = TextInput(flex=1)
+        clear_btn = Button("X")
+        clear_btn.on_press = self.clear_start_html_handler
+        row2 = Box(direction=ROW, gap=10)
+        row2.add(label1)
+        row2.add(self.html_input)
+        row2.add(clear_btn)
+
+        detect_btn = Button("Detect")
+        detect_btn.on_press = self.detect_handler
+
+        row3 = Box()
+        row3.add(detect_btn)
+        
+        detect_box.add(row1)
+        detect_box.add(row2)
+        detect_box.add(row3)
+        ######
+        label1 = Label("M3u8 list")
+        label1.style.update(font_weight="bold")
+        #### 
+        m3u8_box = Box(direction=COLUMN, gap=10, flex=1)
+        self.m3u8_table = toga.Table(columns=["Index", "Title", "M3u8 Url"], data=[], flex=1)
+        self.m3u8_table.on_activate = self.remove_row_handler
+        ###
+        m3u8_box.add(label1)
+
+        row4 = Box()
+        copy_btn = Button("Copy")
+        copy_btn.on_press = self.copy_handler
+        paste_btn = Button("Paste")
+        paste_btn.on_press = self.paste_handler
+        clear_btn = Button("Clear")
+        clear_btn.on_press = self.clear_handler
+
+        row4.add(copy_btn)
+        row4.add(paste_btn)
+        row4.add(clear_btn)
+
+        m3u8_box.add(row4)
+        m3u8_box.add(self.m3u8_table)
+        
+        ####
+        split = SplitContainer(direction=SplitContainer.HORIZONTAL, flex=1)
+        split.content = [(detect_box, 1), (m3u8_box, 2)]
+
+        left_box = Box(direction=COLUMN, gap=10)
+        left_box.add(split)
+
+        ###
+        label2 = Label("Download from m3u8 list")
+        label2.style.update(font_weight="bold")
+
+        ####
+        label3 = Label("Local root path:")
+        self.local_path_input = TextInput(flex=1)
+        row5 = Box(direction=ROW, gap=10)
+        row5.add(label3)
+        row5.add(self.local_path_input)
+
+        ###
+        label4 = Label("Start fragment:")
+        self.start_index_input = NumberInput(flex=1)
+        row6 = Box(direction=ROW, gap=10)
+        row6.add(label4)
+        row6.add(self.start_index_input)
+
+        ###
+        label5 = Label("Skip fragments:")
+        self.skip_count_input = NumberInput(flex=1)
+        row7 = Box(direction=ROW, gap=10)
+        row7.add(label5)
+        row7.add(self.skip_count_input)
+
+        ###
+        download_setting_box = Box(direction=COLUMN, gap=10)
+        download_setting_box.add(row5)
+        download_setting_box.add(row6)
+        download_setting_box.add(row7)
+
+        ###
+        start_download_btn = Button("Start download")
+        start_download_btn.style.update(font_weight="bold")
+        start_download_btn.on_press = self.start_download_handler
+        ###
+        stop_download_btn = Button("Stop download")
+        stop_download_btn.style.update(font_weight="bold")
+        stop_download_btn.on_press = self.stop_download_handler
+
+        ###
+        clear_log_btn = Button("Clear log")
+        clear_log_btn.on_press = self.clear_log_handler
+        self.download_log = MultilineTextInput(readonly=True, flex=1)
+        self.download_log.value = "<Download Log>\n"
+        
+        ###
+        right_box = Box(direction=COLUMN, gap=10)
+        right_box.add(label2)
+        right_box.add(download_setting_box)
+        right_box.add(start_download_btn)
+        right_box.add(stop_download_btn)
+        right_box.add(clear_log_btn)
+        right_box.add(self.download_log)
+        ###
+        split = SplitContainer()
+        split.content = [(left_box, 1), (right_box, 2)]
+
+        ###
+        self.load_settings()
+        self.main_window = MainWindow()
+        self.main_window.size = (1200, 600)
+        self.main_window.title = 'M3u8 Downloader'
+        self.main_window.on_close = self.close_handler
+        self.main_window.content = split
+        self.main_window.show()
+
+
+def main():
+    return M3u8Downloader("App", "ent.tool.downloader.m3u8")
+
+if __name__ == "__main__":
+    main().main_loop()
