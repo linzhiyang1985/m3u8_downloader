@@ -121,11 +121,12 @@ class M3u8Downloader(toga.App):
         ######
 
         ### batch parse m3u8 ###
-        for url, path in self.url_dir_pairs:
-            self.download_log.value += f'>>> Preparing m3u8 {path}\n'
-            backup_command(url, path, self.start_index_input.value, self.skip_count_input.value)
-            get_m3u8_file_content(url, path)
-            self.download_log.value += f'<<< Prepared m3u8 {path}\n'
+        for url, local_dir in self.url_dir_pairs:
+            self.download_log.value += f'>>> Preparing m3u8 {local_dir}\n'
+            backup_command(url, local_dir, self.start_index_input.value, self.skip_count_input.value)
+            if not path.exists(path.join(local_dir, 'm3u8.txt')):
+                get_m3u8_file_content(url, local_dir)
+            self.download_log.value += f'<<< Prepared m3u8 {local_dir}\n'
 
         ### Download ###
         self.downloading = True
