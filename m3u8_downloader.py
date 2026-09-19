@@ -224,127 +224,104 @@ class M3u8Downloader(toga.App):
         self.main_window.close()
 
     def startup(self):
-        detect_box = Box(direction=COLUMN, gap=10, height=120)
-        
-        label0 = Label("Detect m3u8")
-        label0.style.update(font_weight="bold")
-        row1 = Box()
-        row1.add(label0)
+        row1 = Box(children=[
+            Label("Detect m3u8", font_weight="bold")
+        ])
 
-        label1 = Label("Start html")
         self.html_input = TextInput(flex=1)
-        clear_btn = Button("X")
-        clear_btn.on_press = self.clear_start_html_handler
-        row2 = Box(direction=ROW, gap=10)
-        row2.add(label1)
-        row2.add(self.html_input)
-        row2.add(clear_btn)
+        row2 = Box(direction=ROW, gap=10, children=[
+            Label("Start html"),
+            self.html_input,
+            Button("X", on_press = self.clear_start_html_handler)
+        ])
 
-        label6 = Label("Start Num")
-        self.start_num_input = NumberInput(value=1, flex=1)
-        self.start_num_input.min = 1
-        self.start_num_input.max = 100
+        self.start_num_input = NumberInput(value=1, flex=1, min=1, max=100)
+        row3 = Box(direction=ROW, gap=10, children=[
+            Label("Start Num"),
+            self.start_num_input
+        ])
 
-        row8 = Box(direction=ROW, gap=10)
-        row8.add(label6)
-        row8.add(self.start_num_input)
-
-        detect_btn = Button("Detect")
-        detect_btn.on_press = self.detect_handler
-
-        row3 = Box()
-        row3.add(detect_btn)
+        row4 = Box(children=[
+            Button("Detect", on_press = self.detect_handler)
+        ])
         
-        detect_box.add(row1)
-        detect_box.add(row2)
-        detect_box.add(row8)
-        detect_box.add(row3)
+        detect_box = Box(direction=COLUMN, gap=10, height=150, children=[
+            row1,
+            row2,
+            row3,
+            row4
+        ])
         ######
-        label1 = Label("M3u8 list")
-        label1.style.update(font_weight="bold")
-        #### 
-        m3u8_box = Box(direction=COLUMN, gap=10, flex=1)
         self.m3u8_table = toga.Table(columns=["Num", "Title", "M3u8 Url"], data=[], flex=1)
         self.m3u8_table.on_activate = self.remove_row_handler
-        ###
-        m3u8_box.add(label1)
 
-        row4 = Box()
-        copy_btn = Button("Copy")
-        copy_btn.on_press = self.copy_handler
-        paste_btn = Button("Paste")
-        paste_btn.on_press = self.paste_handler
-        clear_btn = Button("Clear")
-        clear_btn.on_press = self.clear_handler
+        row5 = Box(gap=10, children=[
+            Button("Copy", on_press = self.copy_handler),
+            Button("Paste", on_press = self.paste_handler),
+            Button("Clear", on_press = self.clear_handler)
+        ])
 
-        row4.add(copy_btn)
-        row4.add(paste_btn)
-        row4.add(clear_btn)
+        m3u8_box = Box(direction=COLUMN, gap=10, flex=1, children=[
+            Label("M3u8 list", font_weight="bold"),
+            row5,
+            self.m3u8_table
+        ])
 
-        m3u8_box.add(row4)
-        m3u8_box.add(self.m3u8_table)
-        
-        ####
-        split = SplitContainer(direction=SplitContainer.HORIZONTAL, flex=1)
-        split.content = [(detect_box, 1), (m3u8_box, 2)]
-
-        left_box = Box(direction=COLUMN, gap=10)
-        left_box.add(split)
-
-        ###
-        label2 = Label("Download from m3u8 list")
-        label2.style.update(font_weight="bold")
+        left_box = Box(direction=COLUMN, gap=10, children=[
+            detect_box,
+            toga.Divider(),
+            m3u8_box
+        ])
 
         ####
-        label3 = Label("Local root path:")
         self.local_path_input = TextInput(flex=1)
-        row5 = Box(direction=ROW, gap=10)
-        row5.add(label3)
-        row5.add(self.local_path_input)
+        row6 = Box(direction=ROW, gap=10, children=[
+            Label("Local root path:"),
+            self.local_path_input
+        ])
 
         ###
-        label4 = Label("Start fragment:")
         self.start_fragment_index_input = NumberInput(flex=1)
-        row6 = Box(direction=ROW, gap=10)
-        row6.add(label4)
-        row6.add(self.start_fragment_index_input)
+        row7 = Box(direction=ROW, gap=10, children=[
+            Label("Start fragment:"),
+            self.start_fragment_index_input
+        ])
 
         ###
-        label5 = Label("Skip end fragments:")
         self.skip_count_input = NumberInput(flex=1)
-        row7 = Box(direction=ROW, gap=10)
-        row7.add(label5)
-        row7.add(self.skip_count_input)
+        row8 = Box(direction=ROW, gap=10, children=[
+            Label("Skip end fragments:"),
+            self.skip_count_input
+        ])
 
         ###
-        download_setting_box = Box(direction=COLUMN, gap=10)
-        download_setting_box.add(row5)
-        download_setting_box.add(row6)
-        download_setting_box.add(row7)
-
+        download_setting_box = Box(direction=COLUMN, gap=10, children=[
+            row6,
+            row7,
+            row8
+        ])
+        
+        button_box = Box(direction=ROW, gap=10, children=[
+            Button("Start download", font_weight="bold", on_press = self.start_download_handler),
+            Button("Stop download", font_weight="bold", on_press = self.stop_download_handler)
+        ])
+        
         ###
-        start_download_btn = Button("Start download")
-        start_download_btn.style.update(font_weight="bold")
-        start_download_btn.on_press = self.start_download_handler
-        ###
-        stop_download_btn = Button("Stop download")
-        stop_download_btn.style.update(font_weight="bold")
-        stop_download_btn.on_press = self.stop_download_handler
-
-        ###
-        clear_log_btn = Button("Clear log")
-        clear_log_btn.on_press = self.clear_log_handler
         self.download_log = MultilineTextInput(readonly=True, flex=1)
         self.download_log.value = "<Download Log>\n"
-        
+        log_box = Box(direction=COLUMN, gap=10, children=[
+            Label("Download log", font_weight="bold"),
+            Button("Clear log", width=100, on_press = self.clear_log_handler),
+            self.download_log
+        ])
         ###
-        right_box = Box(direction=COLUMN, gap=10)
-        right_box.add(label2)
-        right_box.add(download_setting_box)
-        right_box.add(start_download_btn)
-        right_box.add(stop_download_btn)
-        right_box.add(clear_log_btn)
-        right_box.add(self.download_log)
+        right_box = Box(direction=COLUMN, gap=10, children=[
+            Label("Download from m3u8 list", font_weight="bold"),
+            download_setting_box,
+            button_box,
+            toga.Divider(),
+            log_box
+        ])
         ###
         split = SplitContainer()
         split.content = [(left_box, 1), (right_box, 2)]
