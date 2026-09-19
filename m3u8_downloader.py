@@ -71,12 +71,13 @@ class M3u8Downloader(toga.App):
             return
         host = parse_host(page_url)
         self.m3u8_table.data.clear()
+        start_num = int(self.start_num_input.value)
         while True:
             title, m3u8_url, link_next = get_m3u8_and_next_page(host, page_url)
             print(title)
             print(link_next)
             print(m3u8_url)
-            self.m3u8_table.data.append((f"{len(self.m3u8_table.data)+1:02d}", title, m3u8_url))
+            self.m3u8_table.data.append((f"{(len(self.m3u8_table.data)+start_num):02d}", title, m3u8_url))
             if link_next:
                 page_url = link_next
                 self.html_input.value = page_url
@@ -84,7 +85,7 @@ class M3u8Downloader(toga.App):
                 break
     
     def get_m3u8_list(self):
-        m3u8_list = [(row.index, row.title, row.m3u8_url) for row in self.m3u8_table.data]
+        m3u8_list = [(row.num, row.title, row.m3u8_url) for row in self.m3u8_table.data]
         return m3u8_list
 
     def copy_handler(self, widget):
@@ -99,8 +100,8 @@ class M3u8Downloader(toga.App):
             if format_as_str:
                 self.m3u8_table.data.clear()
                 m3u8_list = [tuple(item.split(',')) for item in format_as_str.splitlines()]
-                for index, title, m3u8_url in m3u8_list:
-                    self.m3u8_table.data.append((index, title, m3u8_url))
+                for num, title, m3u8_url in m3u8_list:
+                    self.m3u8_table.data.append((num, title, m3u8_url))
         except Exception as ex:
             print(ex)
 
@@ -116,14 +117,14 @@ class M3u8Downloader(toga.App):
         m3u8_list = self.get_m3u8_list()
 
         self.url_dir_pairs.clear()
-        for index, _, m3u8_url in m3u8_list:
-            self.url_dir_pairs.append((m3u8_url, f'{root_folder}{'/' if root_folder else ''}{index}'))
+        for num, _, m3u8_url in m3u8_list:
+            self.url_dir_pairs.append((m3u8_url, f'{root_folder}{'/' if root_folder else ''}{num}'))
         ######
 
         ### batch parse m3u8 ###
         for url, local_dir in self.url_dir_pairs:
             self.download_log.value += f'>>> Preparing m3u8 {local_dir}\n'
-            backup_command(url, local_dir, self.start_index_input.value, self.skip_count_input.value)
+            backup_command(url, local_dir, self.start_fragment_index_input.value, self.skip_count_input.value)
             if not path.exists(path.join(local_dir, 'm3u8.txt')):
                 get_m3u8_file_content(url, local_dir)
             self.download_log.value += f'<<< Prepared m3u8 {local_dir}\n'
@@ -144,7 +145,7 @@ class M3u8Downloader(toga.App):
                 while self.url_dir_pairs:
                     url, path = self.url_dir_pairs[0]
                     self.download_log.value += f">>> Downloading {path}\n"
-                    download_m3u8(url, path, int(self.start_index_input.value), int(self.skip_count_input.value))
+                    download_m3u8(url, path, int(self.start_fragment_index_input.value), int(self.skip_count_input.value))
                     done_count += 1
                     if FLAGS['stop']:
                         self.download_log.value += f"<<< Stopped download of {path} ({done_count}/{total})\n"
@@ -175,21 +176,23 @@ class M3u8Downloader(toga.App):
         if path.exists('settings.ini'):
             config.read('settings.ini', encoding='utf-8')
             self.html_input.value = config.get('Settings', 'start_html')
+            self.start_num_input.value = int(config.get('Settings', 'start_num'))
             self.local_path_input.value = config.get('Settings', 'local_path')
-            self.start_index_input.value = int(config.get('Settings', 'start_index'))
+            self.start_fragment_index_input.value = int(config.get('Settings', 'start_index'))
             self.skip_count_input.value = int(config.get('Settings', 'skip_count'))
             
-            for index in config.options('M3u8'):
+            for num in config.options('M3u8'):
                 try:
-                    title, m3u8_url = config.get('M3u8', index).split(',')
-                    self.m3u8_table.data.append((index, title, m3u8_url))
+                    title, m3u8_url = config.get('M3u8', num).split(',')
+                    self.m3u8_table.data.append((num, title, m3u8_url))
                 except Exception as ex:
                     print(ex)
                     continue
         else:
             self.html_input.value = ''
+            self.start_num_input.value = 1
             self.local_path_input.value = 'download'
-            self.start_index_input.value = 0
+            self.start_fragment_index_input.value = 0
             self.skip_count_input.value = 0
             self.m3u8_table.data.clear()
 
@@ -198,14 +201,15 @@ class M3u8Downloader(toga.App):
 
         config.add_section('Settings')
         config.set('Settings', 'start_html', self.html_input.value)
+        config.set('Settings', 'start_num', str(int(self.start_num_input.value)))
         config.set('Settings', 'local_path', self.local_path_input.value)
-        config.set('Settings', 'start_index', str(self.start_index_input.value))
+        config.set('Settings', 'start_index', str(self.start_fragment_index_input.value))
         config.set('Settings', 'skip_count', str(self.skip_count_input.value))
 
         config.add_section('M3u8')
         m3u8_list = self.get_m3u8_list()
-        for index, title, m3u8_url in m3u8_list:
-            config.set('M3u8', index, f'{title},{m3u8_url}')
+        for num, title, m3u8_url in m3u8_list:
+            config.set('M3u8', num, f'{title},{m3u8_url}')
         
         with open('settings.ini', 'w', encoding='utf-8') as f:
             config.write(f)
@@ -236,6 +240,15 @@ class M3u8Downloader(toga.App):
         row2.add(self.html_input)
         row2.add(clear_btn)
 
+        label6 = Label("Start Num")
+        self.start_num_input = NumberInput(value=1, flex=1)
+        self.start_num_input.min = 1
+        self.start_num_input.max = 100
+
+        row8 = Box(direction=ROW, gap=10)
+        row8.add(label6)
+        row8.add(self.start_num_input)
+
         detect_btn = Button("Detect")
         detect_btn.on_press = self.detect_handler
 
@@ -244,13 +257,14 @@ class M3u8Downloader(toga.App):
         
         detect_box.add(row1)
         detect_box.add(row2)
+        detect_box.add(row8)
         detect_box.add(row3)
         ######
         label1 = Label("M3u8 list")
         label1.style.update(font_weight="bold")
         #### 
         m3u8_box = Box(direction=COLUMN, gap=10, flex=1)
-        self.m3u8_table = toga.Table(columns=["Index", "Title", "M3u8 Url"], data=[], flex=1)
+        self.m3u8_table = toga.Table(columns=["Num", "Title", "M3u8 Url"], data=[], flex=1)
         self.m3u8_table.on_activate = self.remove_row_handler
         ###
         m3u8_box.add(label1)
@@ -290,13 +304,13 @@ class M3u8Downloader(toga.App):
 
         ###
         label4 = Label("Start fragment:")
-        self.start_index_input = NumberInput(flex=1)
+        self.start_fragment_index_input = NumberInput(flex=1)
         row6 = Box(direction=ROW, gap=10)
         row6.add(label4)
-        row6.add(self.start_index_input)
+        row6.add(self.start_fragment_index_input)
 
         ###
-        label5 = Label("Skip fragments:")
+        label5 = Label("Skip end fragments:")
         self.skip_count_input = NumberInput(flex=1)
         row7 = Box(direction=ROW, gap=10)
         row7.add(label5)
