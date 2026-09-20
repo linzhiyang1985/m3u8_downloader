@@ -98,7 +98,7 @@ class M3u8Downloader(toga.App):
         try:
             format_as_str = pyperclip.paste()
             if format_as_str:
-                self.m3u8_table.data.clear()
+                #self.m3u8_table.data.clear()
                 m3u8_list = [tuple(item.split(',')) for item in format_as_str.splitlines()]
                 for num, title, m3u8_url in m3u8_list:
                     self.m3u8_table.data.append((num, title, m3u8_url))
