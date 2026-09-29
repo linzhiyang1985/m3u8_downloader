@@ -84,6 +84,11 @@ class M3u8Downloader(toga.App):
             else:
                 break
     
+    def renumber_handler(self, widget):
+        start_num = int(self.start_num_input.value)
+        for i, row in enumerate(self.m3u8_table.data):
+            row.num = f"{(i+start_num):02d}"
+    
     def get_m3u8_list(self):
         m3u8_list = [(row.num, row.title, row.m3u8_url) for row in self.m3u8_table.data]
         return m3u8_list
@@ -241,8 +246,9 @@ class M3u8Downloader(toga.App):
             self.start_num_input
         ])
 
-        row4 = Box(children=[
-            Button("Detect", on_press = self.detect_handler)
+        row4 = Box(gap=10, children=[
+            Button("Detect", on_press = self.detect_handler),
+            Button("Re-num", on_press = self.renumber_handler)
         ])
         
         detect_box = Box(direction=COLUMN, gap=10, height=150, children=[
