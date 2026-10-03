@@ -89,6 +89,9 @@ class M3u8Downloader(toga.App):
         for i, row in enumerate(self.m3u8_table.data):
             row.num = f"{(i+start_num):02d}"
     
+    def save_settings_handler(self, widget):
+        self.save_settings()
+
     def get_m3u8_list(self):
         m3u8_list = [(row.num, row.title, row.m3u8_url) for row in self.m3u8_table.data]
         return m3u8_list
@@ -248,7 +251,8 @@ class M3u8Downloader(toga.App):
 
         row4 = Box(gap=10, children=[
             Button("Detect", on_press = self.detect_handler),
-            Button("Re-num", on_press = self.renumber_handler)
+            Button("Re-num", on_press = self.renumber_handler),
+            Button("Save", on_press = self.save_settings_handler)
         ])
         
         detect_box = Box(direction=COLUMN, gap=10, height=150, children=[
@@ -315,7 +319,7 @@ class M3u8Downloader(toga.App):
         ###
         self.download_log = MultilineTextInput(readonly=True, flex=1)
         self.download_log.value = "<Download Log>\n"
-        log_box = Box(direction=COLUMN, gap=10, children=[
+        log_box = Box(direction=COLUMN, gap=10, flex=1, children=[
             Label("Download log", font_weight="bold"),
             Button("Clear log", width=100, on_press = self.clear_log_handler),
             self.download_log
