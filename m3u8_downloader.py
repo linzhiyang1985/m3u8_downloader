@@ -1,5 +1,4 @@
-from toga import MainWindow, Label, Button, Box, TextInput, MultilineTextInput, SplitContainer, NumberInput
-import toga
+from toga import App, MainWindow, Label, Button, Box, TextInput, MultilineTextInput, SplitContainer, NumberInput, Table, Divider, Switch, Icon
 import pyperclip
 
 from get_m3u8 import get_m3u8_and_next_page, parse_host
@@ -9,7 +8,7 @@ from toga.constants import COLUMN, ROW
 
 from typing import TypeAlias
 from pathlib import Path
-IconContentT: TypeAlias = str | Path | toga.Icon
+IconContentT: TypeAlias = str | Path | Icon
 
 from toga.app import AppStartupMethod, OnRunningHandler, OnExitHandler
 from toga.documents import Document
@@ -19,7 +18,7 @@ from os import path
 from threading import Thread
 import time
 
-class M3u8Downloader(toga.App):
+class M3u8Downloader(App):
 
     def __init__(self,
         formal_name: str | None = None,
@@ -51,6 +50,9 @@ class M3u8Downloader(toga.App):
             on_exit=on_exit)
         self.main_window = None
         self.url_dir_pairs = []
+        self.copy_paste_target = 'clipboard'
+        self.cache1 = ''
+        self.cache2 = ''
         self._activate_download_thread_()
 
     def _activate_download_thread_(self):
@@ -100,11 +102,21 @@ class M3u8Downloader(toga.App):
         m3u8_list = self.get_m3u8_list()
         format_to_str = "\n".join([",".join(item) for item in m3u8_list])
         # copy to clipboard
-        pyperclip.copy(format_to_str)
+        if self.copy_paste_target == 'clipboard':
+            pyperclip.copy(format_to_str)
+        elif self.copy_paste_target == 'cache1':
+            self.cache1 = format_to_str
+        elif self.copy_paste_target == 'cache2':
+            self.cache2 = format_to_str
 
     def paste_handler(self, widget):
         try:
-            format_as_str = pyperclip.paste()
+            if self.copy_paste_target == 'clipboard':
+                format_as_str = pyperclip.paste()
+            elif self.copy_paste_target == 'cache1':
+                format_as_str = self.cache1
+            elif self.copy_paste_target == 'cache2':
+                format_as_str = self.cache2
             if format_as_str:
                 #self.m3u8_table.data.clear()
                 m3u8_list = [tuple(item.split(',')) for item in format_as_str.splitlines()]
@@ -112,6 +124,36 @@ class M3u8Downloader(toga.App):
                     self.m3u8_table.data.append((num, title, m3u8_url))
         except Exception as ex:
             print(ex)
+
+    def select_clipboard_handler(self, widget):
+        if self.switch_clipboard.value:
+            self.switch_clipboard.style.font_weight = "bold"
+            self.copy_paste_target = 'clipboard'
+
+            self.switch_cache1.style.font_weight = "normal"
+            self.switch_cache1.value = False
+            self.switch_cache2.style.font_weight = "normal"
+            self.switch_cache2.value = False
+    
+    def select_cache1_handler(self, widget):
+        if self.switch_cache1.value:
+            self.switch_cache1.style.font_weight = "bold"
+            self.copy_paste_target = 'cache1'
+
+            self.switch_clipboard.style.font_weight = "normal"
+            self.switch_clipboard.value = False
+            self.switch_cache2.style.font_weight = "normal"
+            self.switch_cache2.value = False
+    
+    def select_cache2_handler(self, widget):
+        if self.switch_cache2.value:
+            self.switch_cache2.style.font_weight = "bold"
+            self.copy_paste_target = 'cache2'
+
+            self.switch_clipboard.style.font_weight = "normal"
+            self.switch_clipboard.value = False
+            self.switch_cache1.style.font_weight = "normal"
+            self.switch_cache1.value = False
 
     def clear_handler(self, widget):
         self.m3u8_table.data.clear()        
@@ -151,16 +193,20 @@ class M3u8Downloader(toga.App):
                 total = len(self.url_dir_pairs)
                 done_count = 0
                 while self.url_dir_pairs:
-                    url, path = self.url_dir_pairs[0]
-                    self.download_log.value += f">>> Downloading {path}\n"
-                    download_m3u8(url, path, int(self.start_fragment_index_input.value), int(self.skip_count_input.value))
-                    done_count += 1
-                    if FLAGS['stop']:
-                        self.download_log.value += f"<<< Stopped download of {path} ({done_count}/{total})\n"
-                        break
-                    else:
-                        self.download_log.value += f"<<< Downloaded {path} ({done_count}/{total})\n"
-                        self.url_dir_pairs.remove((url, path))
+                    try:
+                        url, path = self.url_dir_pairs[0]
+                        self.download_log.value += f">>> Downloading {path}\n"
+                        download_m3u8(url, path, int(self.start_fragment_index_input.value), int(self.skip_count_input.value))
+                        done_count += 1
+                        if FLAGS['stop']:
+                            self.download_log.value += f"<<< Stopped download of {path} ({done_count}/{total})\n"
+                            break
+                        else:
+                            self.download_log.value += f"<<< Downloaded {path} ({done_count}/{total})\n"
+                            self.url_dir_pairs.remove((url, path))
+                    except Exception as ex:
+                        print(f"Error downloading {path}: {ex}")
+                        continue
                 
                 self.downloading = False # all files downloaded
                 if FLAGS['stop']:
@@ -262,24 +308,34 @@ class M3u8Downloader(toga.App):
             row4
         ])
         ######
-        self.m3u8_table = toga.Table(columns=["Num", "Title", "M3u8 Url"], data=[], flex=1)
+        self.m3u8_table = Table(columns=["Num", "Title", "M3u8 Url"], data=[], flex=1)
         self.m3u8_table.on_activate = self.remove_row_handler
 
-        row5 = Box(gap=10, children=[
+        self.switch_clipboard = Switch('Clipboard', font_weight="bold", value=True, on_change = self.select_clipboard_handler)
+        self.switch_cache1 = Switch('Cache1', font_weight="normal", value=False, on_change = self.select_cache1_handler)
+        self.switch_cache2 = Switch('Cache2', font_weight="normal", value=False, on_change = self.select_cache2_handler)
+
+        row5 = Box(direction=ROW, gap=10, children=[
             Button("Copy", on_press = self.copy_handler),
             Button("Paste", on_press = self.paste_handler),
-            Button("Clear", on_press = self.clear_handler)
+            Label('<=>'),
+            self.switch_clipboard,
+            self.switch_cache1,
+            self.switch_cache2,
+            Divider()
         ])
 
         m3u8_box = Box(direction=COLUMN, gap=10, flex=1, children=[
             Label("M3u8 list", font_weight="bold"),
             row5,
+            Divider(),
+            Button("Clear", width=80, on_press = self.clear_handler),
             self.m3u8_table
         ])
 
         left_box = Box(direction=COLUMN, gap=10, children=[
             detect_box,
-            toga.Divider(),
+            Divider(),
             m3u8_box
         ])
 
@@ -329,7 +385,7 @@ class M3u8Downloader(toga.App):
             Label("Download from m3u8 list", font_weight="bold"),
             download_setting_box,
             button_box,
-            toga.Divider(),
+            Divider(),
             log_box
         ])
         ###
